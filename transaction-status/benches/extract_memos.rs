@@ -10,18 +10,30 @@ use {
 
 #[bench]
 fn bench_extract_memos(b: &mut Bencher) {
-    let mut account_keys: Vec<Pubkey> = (0..64).map(|_| Pubkey::new_unique()).collect();
-    account_keys[62] = spl_memo_id_v1();
-    account_keys[63] = spl_memo_id_v3();
-    let memo = "Test memo";
+    // Precompute constants
+    const MEMO_V1: Pubkey = spl_memo_id_v1();
+    const MEMO_V3: Pubkey = spl_memo_id_v3();
+    const MEMO: &str = "Test memo";
+    const MEMO_BYTES: &[u8] = MEMO.as_bytes();
 
-    let instructions: Vec<_> = (0..20)
-        .map(|i| CompiledInstruction {
-            program_id_index: 62 + (i % 2),
+    // Pre-allocate memory for account_keys
+    let mut account_keys = Vec::with_capacity(64);
+    for _ in 0..64 {
+        account_keys.push(Pubkey::new_unique());
+    }
+    account_keys[62] = MEMO_V1;
+    account_keys[63] = MEMO_V3;
+
+    // Pre-allocate memory for instructions
+    let mut instructions = Vec::with_capacity(20);
+    for i in 0..20 {
+        let program_id_index = 62 + (i % 2);
+        instructions.push(CompiledInstruction {
+            program_id_index,
             accounts: vec![],
-            data: memo.as_bytes().to_vec(),
-        })
-        .collect();
+            data: MEMO_BYTES.to_vec(),
+        });
+    }
 
     let message = Message {
         account_keys,
@@ -29,5 +41,6 @@ fn bench_extract_memos(b: &mut Bencher) {
         ..Message::default()
     };
 
+    // Benchmark the extraction of memos
     b.iter(|| message.extract_memos());
 }
